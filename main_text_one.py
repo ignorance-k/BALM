@@ -77,8 +77,8 @@ def run_train_batch(args, data, model, BCE_loss, optimizer, lr_scheduler, label_
 
     # ★ 在前向前根据 global_step 应用日程
     # AAPD注释掉
-    if head is not None and sched is not None and global_step is not None:
-        _apply_schedule(head, global_step, sched)
+    # if head is not None and sched is not None and global_step is not None:
+    #     _apply_schedule(head, global_step, sched)
 
     batch = {
         "input_ids": batch_text_input_ids,
@@ -108,16 +108,16 @@ def run_train_batch(args, data, model, BCE_loss, optimizer, lr_scheduler, label_
     optimizer.zero_grad()
     loss.backward()
     # ★ AAPD,注释掉
-    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)  # 建议加上
+    # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)  # 建议加上
 
     optimizer.step()
     lr_scheduler.step()
 
     # ★
-    gate_stats = _log_gate_stats(head)
-    return loss, gate_stats
+    # gate_stats = _log_gate_stats(head)
+    # return loss, gate_stats
     # AAPD
-    # return loss
+    return loss
 
 def run_test_batch(args, data, model, BCE_loss, accuracy, LESP_loss=None, DR_loss=None):
     batch_text_input_ids, batch_text_padding_mask, \
@@ -212,9 +212,9 @@ if __name__ == '__main__':
     num_stop_dropping = 0
 
     # ★ 取出分组头 & 构建日程
-    head = _get_grouped_head(mmld)
-    sched = _build_schedule(args, head, steps_per_epoch=len(train_data_loader))
-    global_step = 0  # ★ 全局步数计数器
+    # head = _get_grouped_head(mmld)
+    # sched = _build_schedule(args, head, steps_per_epoch=len(train_data_loader))
+    # global_step = 0  # ★ 全局步数计数器
 
     for epoch in range(args.epochs):
         mmld.train()
@@ -224,26 +224,26 @@ if __name__ == '__main__':
         with tqdm(train_data_loader, ncols=200) as batch:
             for batch_idx, data in enumerate(batch):
                 # ★ tqdm 展示：loss + 门控监控（每若干步打印一次）
-                criterion, gate_stats = run_train_batch(
-                    args, data, mmld, BCE_loss, optimizer, lr_scheduler,
-                    label_number, LESP_loss, DR_loss,
-                    head=head, sched=sched, global_step=global_step  # ★ 新增
-                )
-
-                if gate_stats is not None and (global_step % getattr(args, "log_every", 100) == 0):
-                    max_imp, ent = gate_stats
-                    batch.set_description(f"epoch:{epoch + 1}/{args.epochs}")
-                    batch.set_postfix(loss=float(criterion.item()), max_imp=f"{max_imp:.2f}", H=f"{ent:.2f}")
-                else:
-                    batch.set_description(f"epoch:{epoch + 1}/{args.epochs}")
-                    batch.set_postfix(loss=float(criterion.item()))
-                global_step += 1
+                # criterion, gate_stats = run_train_batch(
+                #     args, data, mmld, BCE_loss, optimizer, lr_scheduler,
+                #     label_number, LESP_loss, DR_loss,
+                #     head=head, sched=sched, global_step=global_step  # ★ 新增
+                # )
+                #
+                # if gate_stats is not None and (global_step % getattr(args, "log_every", 100) == 0):
+                #     max_imp, ent = gate_stats
+                #     batch.set_description(f"epoch:{epoch + 1}/{args.epochs}")
+                #     batch.set_postfix(loss=float(criterion.item()), max_imp=f"{max_imp:.2f}", H=f"{ent:.2f}")
+                # else:
+                #     batch.set_description(f"epoch:{epoch + 1}/{args.epochs}")
+                #     batch.set_postfix(loss=float(criterion.item()))
+                # global_step += 1
 
                 # AAPD
-                # criterion = run_train_batch(args, data, mmld, BCE_loss, optimizer, lr_scheduler, label_number,
-                #                             LESP_loss, DR_loss)
-                # batch.set_description(f"train epoch:{epoch + 1}/{args.epochs}")
-                # batch.set_postfix(loss=criterion.item())
+                criterion = run_train_batch(args, data, mmld, BCE_loss, optimizer, lr_scheduler, label_number,
+                                            LESP_loss, DR_loss)
+                batch.set_description(f"train epoch:{epoch + 1}/{args.epochs}")
+                batch.set_postfix(loss=criterion.item())
 
 
         with torch.no_grad():

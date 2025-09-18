@@ -54,14 +54,14 @@ class GroupedMoE(nn.Module):
         num_labels: int,  # 全量标签数 C
         in_dim: int,
         label_groups: Union[List[List[int]], Dict[str, List[int]]],
-        topk: int = 3,                  # Top-K 选多少个“组专家”, AAPD:2, rcv1:3
+        topk: int = 2,                  # Top-K 选多少个“组专家”, AAPD:2, rcv1:3
         dropout: float = 0.1,
         expert_hidden: int = 0,         # 0=线性专家；>0=两层MLP
         use_residual_base: bool = True, # 是否叠加全维Base头
         base_weight: float = 1.0,
         moe_weight: float = 1.0,
         # 门控与正则
-        gate_temp: float = 2.0,            #1.0, 2.0
+        gate_temp: float = 1.0,            #1.0, 2.0
         noisy_gate: bool = False,
         gate_noise_std: float = 0.0,
         balance_coef: float = 0.01      # 负载均衡强度（importance/load 双约束）
@@ -142,32 +142,32 @@ class GroupedMoE(nn.Module):
         else:
             W = gate_probs                                                 # Dense
 
-        # # === 集合 AAPD ===
+        # === 集合 AAPD ===
         # 聚合：对每个组的专家输出做带权 scatter_add 到全维 logits
-        # logits = torch.zeros(B, self.num_labels, device=device)
-        # for g, idx in enumerate(self.group_indices):
-        #     idx = idx.to(device)                                           # [m]
-        #     out_g = self.experts[g](h)                                     # [B, m]
-        #     w = W[:, g].unsqueeze(1)                                       # [B, 1]
-        #     contrib = out_g * w                                            # [B, m]
-        #     # 扩展索引到 [B, m] 以做 batch scatter_add
-        #     scatter_idx = idx.view(1, -1).expand(B, -1)                    # [B, m]
-        #     logits = logits.scatter_add(1, scatter_idx, contrib)           # [B, C]
-
-        # === 聚合 -- 提速（rcv1） ===
-        # 选出本 batch 实际用到的组（W[:, g] > 0）
-        if self.topk < self.G:
-            selected = (W.max(dim=0).values > 0).nonzero(as_tuple=False).squeeze(1)  # [U]
-        else:
-            selected = torch.arange(self.G, device=device)
         logits = torch.zeros(B, self.num_labels, device=device)
-        for g in selected.tolist():
-            idx = self.group_indices[g].to(device)  # [m]
-            out_g = self.experts[g](h)  # [B, m]
-            w = W[:, g].unsqueeze(1)  # [B, 1]
-            contrib = out_g * w  # [B, m]
-            scatter_idx = idx.view(1, -1).expand(B, -1)  # [B, m]
-            logits = logits.scatter_add(1, scatter_idx, contrib)  # [B, C]
+        for g, idx in enumerate(self.group_indices):
+            idx = idx.to(device)                                           # [m]
+            out_g = self.experts[g](h)                                     # [B, m]
+            w = W[:, g].unsqueeze(1)                                       # [B, 1]
+            contrib = out_g * w                                            # [B, m]
+            # 扩展索引到 [B, m] 以做 batch scatter_add
+            scatter_idx = idx.view(1, -1).expand(B, -1)                    # [B, m]
+            logits = logits.scatter_add(1, scatter_idx, contrib)           # [B, C]
+
+        # # === 聚合 -- 提速（rcv1） ===
+        # # 选出本 batch 实际用到的组（W[:, g] > 0）
+        # if self.topk < self.G:
+        #     selected = (W.max(dim=0).values > 0).nonzero(as_tuple=False).squeeze(1)  # [U]
+        # else:
+        #     selected = torch.arange(self.G, device=device)
+        # logits = torch.zeros(B, self.num_labels, device=device)
+        # for g in selected.tolist():
+        #     idx = self.group_indices[g].to(device)  # [m]
+        #     out_g = self.experts[g](h)  # [B, m]
+        #     w = W[:, g].unsqueeze(1)  # [B, 1]
+        #     contrib = out_g * w  # [B, m]
+        #     scatter_idx = idx.view(1, -1).expand(B, -1)  # [B, m]
+        #     logits = logits.scatter_add(1, scatter_idx, contrib)  # [B, C]
 
 
         # 残差 Base（可选）

@@ -3,7 +3,7 @@ import torch
 import pickle
 import pandas as pd
 from tqdm import tqdm
-from util import auto_split_label_groups, label_dict_change
+from util import auto_split_label_groups
 from transformers import BertTokenizer
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.distributed import DistributedSampler
