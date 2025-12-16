@@ -1,10 +1,3 @@
-LTMLTC In practice, labels usually follow a long-tail distribution, where most samples are concentrated in a few dominant classes, while the rest are scattered among many rare classes (tail labels).
-
-
-
-![image-20251216161251028](1.assets/image-20251216161251028.png)
-
-![image-20251216161300022](1.assets/image-20251216161300022.png)
 
 ## Complexity Analysis
 
@@ -57,3 +50,4 @@ Computing $R_{\text{ILMR}}$ requires processing logits over the batch and label 
   $$\sum_{g \in \text{Top-}K} O(D m_g) \approx O(KDT),$$
 
   plus router cost $O(GD)$. When $K \ll G$, this yields substantial sparsity while load-balancing helps prevent expert collapse.
+
